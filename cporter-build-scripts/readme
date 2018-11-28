@@ -1,0 +1,7 @@
+cporter 2018.11.27
+
+Helper scripts to be placed in build/ folder for now. Just useful for hacking
+on z3 + multiverse with the c++ example.
+
+I saved the top-level Makefile from build/, because I'm not sure if I modified
+it and had a valuable change.

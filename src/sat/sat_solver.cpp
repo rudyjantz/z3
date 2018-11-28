@@ -28,6 +28,12 @@ Revision History:
 #include "util/max_cliques.h"
 #include "util/gparams.h"
 
+//#include "/home/rudy/sat/wo/multiverse/code/runtime/multiverse_helper_aux.h"
+//#include "/home/rudy/sat/wo/multiverse/code/runtime/multiverse_aux.h"
+//#include "/home/rudy/sat/wo/multiverse/code/runtime/multiverse_macros.h"
+#include "/home/rudy/sat/wo/multiverse/code/runtime/multiverse.h"
+#include "/home/rudy/sat/wo/multiverse/code/runtime/multiverse_helper.h"
+
 // define to update glue during propagation
 #define UPDATE_GLUE
 
@@ -1060,16 +1066,24 @@ namespace sat {
     //
     // -----------------------
     lbool solver::check(unsigned num_lits, literal const* lits) {
+        printf("cporter check()\n");
         init_reason_unknown();
+        printf("cporter check(): 1\n");
         pop_to_base_level();
+        printf("cporter check(): 2\n");
         m_stats.m_units = init_trail_size();
+        printf("cporter check(): 3\n");
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
+        printf("cporter check(): 4\n");
         SASSERT(at_base_lvl());
+        printf("cporter check(): 5\n");
 
         if (m_config.m_local_search) {
+            printf("cporter check(): calling do_local_search\n");
             return do_local_search(num_lits, lits);
         }
         if ((m_config.m_num_threads > 1 || m_config.m_local_search_threads > 0 || m_config.m_unit_walk_threads > 0) && !m_par) {
+            printf("cporter check(): calling check_par\n");
             SASSERT(scope_lvl() == 0);
             return check_par(num_lits, lits);
         }
@@ -1176,6 +1190,10 @@ namespace sat {
         return r;
     }
 
+    void cporter_multiverse_test() {
+        printf("cporter_multiverse_test() 2\n");
+    }
+
     lbool solver::check_par(unsigned num_lits, literal const* lits) {
         scoped_ptr_vector<local_search> ls;
         scoped_ptr_vector<solver> uw;
@@ -1183,6 +1201,14 @@ namespace sat {
         int num_local_search  = static_cast<int>(m_config.m_local_search_threads);
         int num_unit_walk = static_cast<int>(m_config.m_unit_walk_threads);
         int num_threads = num_extra_solvers + 1 + num_local_search + num_unit_walk;
+        printf("cporter check_par()\n");
+
+        //cporter_multiverse_test();
+        //void migrate_many(int num);
+        //int get_rank();
+        //void unmigrate();
+        speculate_with(2, cporter_multiverse_test());
+
         for (int i = 0; i < num_local_search; ++i) {
             local_search* l = alloc(local_search);
             l->config().set_config(m_config);

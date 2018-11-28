@@ -75,3 +75,6 @@ src/api/ml/z3.mllib
 *.bak
 doc/api
 doc/code
+
+*.swp
+src/util/z3_version.h

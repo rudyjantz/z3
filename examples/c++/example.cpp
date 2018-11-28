@@ -6,8 +6,11 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include<vector>
 #include"z3++.h"
+#include "/home/rudy/sat/wo/multiverse/code/runtime/multiverse_aux.h"
+#include "/home/rudy/sat/wo/multiverse/code/runtime/multiverse_helper_aux.h"
 
 using namespace z3;
+
 
 
 
@@ -26,6 +29,7 @@ void demorgan() {
     expr conjecture = (!(x && y)) == (!x || !y);
     
     solver s(c);
+    s.set("sat.local_search_threads", (unsigned int) 3);
     // adding the negation of the conjecture as a constraint.
     s.add(!conjecture);
     std::cout << s << "\n";
@@ -1180,7 +1184,8 @@ void mk_model_example() {
 }
 
 
-int main() {
+int main(int argc, char *argv[]) {
+    #include "/home/rudy/sat/wo/multiverse/code/runtime/multiverse_main.h"
 
     try {
         demorgan(); std::cout << "\n";
@@ -1232,5 +1237,6 @@ int main() {
     catch (exception & ex) {
         std::cout << "unexpected error: " << ex << "\n";
     }
+    multiverse_shutdown();
     return 0;
 }

@@ -455,7 +455,7 @@ sat/sat_params.hpp.node: ../src/sat/sat_params.hpp util/params.h.node util/gpara
 	@echo done > sat/sat_params.hpp.node
 sat/sat_local_search$(OBJ_EXT): ../src/sat/sat_local_search.cpp sat/sat_local_search.h.node sat/sat_solver.h.node sat/ba_solver.h.node sat/sat_params.hpp.node util/timer.h.node
 	@echo src/sat/sat_local_search.cpp
-	@$(CXX) $(CXXFLAGS) $(includes_2) $(CXX_OUT_FLAG)sat/sat_local_search$(OBJ_EXT) ../src/sat/sat_local_search.cpp
+	mpic++ $(CXXFLAGS) $(includes_2) $(CXX_OUT_FLAG)sat/sat_local_search$(OBJ_EXT) ../src/sat/sat_local_search.cpp
 sat/dimacs.h.node: ../src/sat/dimacs.h sat/sat_types.h.node
 	@echo done > sat/dimacs.h.node
 sat/dimacs$(OBJ_EXT): ../src/sat/dimacs.cpp sat/dimacs.h.node sat/sat_solver.h.node

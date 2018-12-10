@@ -29,6 +29,9 @@ Notes:
 #include<limits.h>
 #include<mpi.h>
 
+
+extern int rank;
+
 /**
    \defgroup cppapi C++ API
 
@@ -2120,9 +2123,58 @@ namespace z3 {
             add(e, ctx().bool_const(p));
         }
 
-        int rank;
+        // cporter BEGIN
+
+        //int rank;
+        void worker_do(char *msg)
+        {
+            int tag;
+            int dest;
+            char outmsg;
+
+            dest   = 0;
+            tag    = 1;
+            outmsg ='s';
+
+            printf("rank(%d) worker-do\n", rank);
+            MPI_Send(&outmsg, 1, MPI_CHAR, dest, tag, MPI_COMM_WORLD);
+        }
+
+        void worker_terminate(void)
+        {
+            printf("rank(%d) terminating\n", rank);
+            MPI_Finalize();
+            exit(0);
+        }
+
+        void worker_wait(void) {
+            int numtasks;
+            int source;
+            int tag;
+            char inmsg;
+            MPI_Status Stat;   // required variable for receive routines
+
+            source = 0;
+            tag = 1;
+
+            while(1){
+                // Block receive
+                printf("rank(%d) going into block-rcv\n", rank);
+                MPI_Recv(&inmsg, 1, MPI_CHAR, source, tag, MPI_COMM_WORLD, &Stat);
+                printf("rank(%d) received msg(%c)\n", rank, inmsg);
+                if(inmsg == 'm'){
+                    worker_do(&inmsg);
+                }else if(inmsg == 'x'){
+                    worker_terminate();
+                }else{
+                    printf("rank(%d) received unexpected msg: %c\n", rank, inmsg);
+                }
+            }
+
+        }
+
         void init_mpi(int argc, char *argv[]) {
-            printf("cporter: init-mpi\n");
+            printf("cporter: init_mpi\n");
             int numtasks;
             int dest;
             int source;
@@ -2135,19 +2187,33 @@ namespace z3 {
 
             if(rank == 0){
                 printf("numtasks: %d\n", numtasks);
-                MPI_Finalize();
                 return;
             }else if(rank == 1){
-                //worker_wait();
-                printf("rank is %d. Not supported\n", rank);
-                MPI_Finalize();
-                exit(0);
+                worker_wait();
             }else{
                 printf("rank is %d. Not supported\n", rank);
                 MPI_Finalize();
                 exit(0);
             }
         }
+
+        void destroy_mpi(void) {
+            int dest;
+            int tag;
+            char outmsg;
+
+            outmsg = 'x';
+            tag  = 1;
+            dest = 1;
+            MPI_Send(&outmsg, 1, MPI_CHAR, dest, tag, MPI_COMM_WORLD);
+            MPI_Finalize();
+        }
+        // cporter END
+
+
+
+
+
 
         // fails for some compilers:
         // void add(expr_vector const& v) { check_context(*this, v); for (expr e : v) add(e); }

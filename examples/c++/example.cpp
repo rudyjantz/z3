@@ -29,8 +29,9 @@ void demorgan(int argc, char **argv) {
     solver s(c);
     printf("cporter demorgan calling init_mpi\n");
     s.init_mpi(argc, argv);
-    //printf("cporter demorgan setting local search threads\n");
-    //s.set("local_search_threads", (unsigned int) 1);
+
+    printf("cporter demorgan setting local search threads to for check_par to get called\n");
+    s.set("local_search_threads", (unsigned int) 2);
 
     // adding the negation of the conjecture as a constraint.
     printf("cporter demorgan adding conjecture\n");

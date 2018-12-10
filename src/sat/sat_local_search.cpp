@@ -22,6 +22,7 @@ Notes:
 #include "sat/ba_solver.h"
 #include "sat/sat_params.hpp"
 #include "util/timer.h"
+#include <mpi.h>
 
 int rank __attribute__((visibility("default")));
 
@@ -611,7 +612,17 @@ namespace sat {
     lbool local_search::check_mpi(unsigned sz, literal const* assumptions, parallel* p) {
         printf("cporter check_mpi: my rank is %d\n", rank);
 
-        return check(sz, assumptions, p);
+        int dest;
+        int tag;
+        char outmsg;
+
+        dest   = 1;
+        tag    = 1;
+        outmsg = 'm';
+
+        MPI_Send(&outmsg, 1, MPI_CHAR, dest, tag, MPI_COMM_WORLD);
+
+        //return check(sz, assumptions, p);
     }
 
 

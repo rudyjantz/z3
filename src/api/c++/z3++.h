@@ -2125,7 +2125,6 @@ namespace z3 {
 
         // cporter BEGIN
 
-        //int rank;
         void worker_do(char *msg)
         {
             int tag;

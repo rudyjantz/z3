@@ -23,6 +23,8 @@ Notes:
 #include "sat/sat_params.hpp"
 #include "util/timer.h"
 
+int rank __attribute__((visibility("default")));
+
 namespace sat {
 
     void local_search::init() {
@@ -605,9 +607,25 @@ namespace sat {
             }
         }
     }
+
+    lbool local_search::check_mpi(unsigned sz, literal const* assumptions, parallel* p) {
+        printf("cporter check_mpi: my rank is %d\n", rank);
+
+        return check(sz, assumptions, p);
+    }
+
+
     
     lbool local_search::check(unsigned sz, literal const* assumptions, parallel* p) {
-        flet<parallel*> _p(m_par, p);
+        printf("cporter: inside local_search:check()\n");
+
+        // stop walk-sat threads from helping each other
+        //flet<parallel*> _p(m_par, p);
+        m_par = nullptr;
+
+        printf("cporter: sz: %u\n", sz);
+        printf("cporter: assumptions: %p\n", assumptions);
+
         m_model.reset();
         m_assumptions.reset();
         m_assumptions.append(sz, assumptions);
@@ -615,9 +633,11 @@ namespace sat {
 
         switch (m_config.mode()) {
         case local_search_mode::gsat:
+            printf("cporter: using gsat\n");
             gsat();
             break;
         case local_search_mode::wsat:
+            printf("cporter: using walksat\n");
             walksat();
             break;
         }
@@ -643,6 +663,8 @@ namespace sat {
         }
         IF_VERBOSE(1, verbose_stream() << "(sat-local-search " << result << ")\n";);
         IF_VERBOSE(20, display(verbose_stream()););
+
+        printf("cporter: returning from local_search:check() with result %d\n", result);
         return result;
     }
 

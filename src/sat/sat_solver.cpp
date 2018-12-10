@@ -27,6 +27,7 @@ Revision History:
 #include "util/trace.h"
 #include "util/max_cliques.h"
 #include "util/gparams.h"
+#include <mpi.h>
 
 // define to update glue during propagation
 #define UPDATE_GLUE
@@ -1183,7 +1184,9 @@ namespace sat {
         scoped_ptr_vector<solver> uw;
         printf("cporter check_par\n");
         int num_extra_solvers = m_config.m_num_threads - 1;
-        int num_local_search  = static_cast<int>(m_config.m_local_search_threads);
+        //int num_local_search  = static_cast<int>(m_config.m_local_search_threads);
+        // hard-code a "dummy" thread to receive the MPI responses
+        int num_local_search = 1;
         int num_unit_walk = static_cast<int>(m_config.m_unit_walk_threads);
         int num_threads = num_extra_solvers + 1 + num_local_search + num_unit_walk;
         for (int i = 0; i < num_local_search; ++i) {
@@ -1230,9 +1233,14 @@ namespace sat {
         unsigned error_code = 0;
         lbool result = l_undef;
         bool canceled = false;
+
+        int num_mpi_procs;
+        MPI_Comm_size(MPI_COMM_WORLD, &num_mpi_procs);
+
         printf("cporter check_par: num_threads(%d)\n", num_threads);
         printf("cporter check_par: result starts as %d\n", result);
         printf("cporter check_par: lits(%p)\n", lits);
+        printf("cporter check_par: num-mpi-procs (%d)\n", num_mpi_procs);
         #pragma omp parallel for
         for (int i = 0; i < num_threads; ++i) {
             try {

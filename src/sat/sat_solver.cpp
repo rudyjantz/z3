@@ -59,6 +59,7 @@ namespace sat {
         m_params(p),
         m_par_id(0),
         m_par_syncing_clauses(false) {
+        printf("cporter inside solver()\n");
         init_reason_unknown();
         updt_params(p);
         m_conflicts_since_gc      = 0;
@@ -1060,6 +1061,7 @@ namespace sat {
     //
     // -----------------------
     lbool solver::check(unsigned num_lits, literal const* lits) {
+        printf("cporter check()\n");
         init_reason_unknown();
         pop_to_base_level();
         m_stats.m_units = init_trail_size();
@@ -1179,6 +1181,7 @@ namespace sat {
     lbool solver::check_par(unsigned num_lits, literal const* lits) {
         scoped_ptr_vector<local_search> ls;
         scoped_ptr_vector<solver> uw;
+        printf("cporter check_par\n");
         int num_extra_solvers = m_config.m_num_threads - 1;
         int num_local_search  = static_cast<int>(m_config.m_local_search_threads);
         int num_unit_walk = static_cast<int>(m_config.m_unit_walk_threads);
@@ -1227,20 +1230,25 @@ namespace sat {
         unsigned error_code = 0;
         lbool result = l_undef;
         bool canceled = false;
+        printf("cporter check_par: num_threads(%d)\n", num_threads);
         #pragma omp parallel for
         for (int i = 0; i < num_threads; ++i) {
             try {
                 lbool r = l_undef;
                 if (IS_AUX_SOLVER(i)) {
+                    printf("cporter: is-aux-solver\n");
                     r = par.get_solver(i).check(num_lits, lits);
                 }
                 else if (IS_LOCAL_SEARCH(i)) {
+                    printf("cporter: is-local-search\n");
                     r = ls[i-local_search_offset]->check(num_lits, lits, &par);
                 }
                 else if (IS_UNIT_WALK(i)) {
+                    printf("cporter: is-unit-walk\n");
                     r = uw[i-unit_walk_offset]->check(num_lits, lits);
                 }
                 else {
+                    printf("cporter: default else\n");
                     r = check(num_lits, lits);
                 }
                 bool first = false;

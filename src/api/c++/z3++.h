@@ -27,6 +27,7 @@ Notes:
 #include<sstream>
 #include<z3.h>
 #include<limits.h>
+#include<mpi.h>
 
 /**
    \defgroup cppapi C++ API
@@ -2118,6 +2119,36 @@ namespace z3 {
         void add(expr const & e, char const * p) {
             add(e, ctx().bool_const(p));
         }
+
+        int rank;
+        void init_mpi(int argc, char *argv[]) {
+            printf("cporter: init-mpi\n");
+            int numtasks;
+            int dest;
+            int source;
+            char inmsg;
+            MPI_Status Stat;   // required variable for receive routines
+
+            MPI_Init(&argc,&argv);
+            MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
+            MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+            if(rank == 0){
+                printf("numtasks: %d\n", numtasks);
+                MPI_Finalize();
+                return;
+            }else if(rank == 1){
+                //worker_wait();
+                printf("rank is %d. Not supported\n", rank);
+                MPI_Finalize();
+                exit(0);
+            }else{
+                printf("rank is %d. Not supported\n", rank);
+                MPI_Finalize();
+                exit(0);
+            }
+        }
+
         // fails for some compilers:
         // void add(expr_vector const& v) { check_context(*this, v); for (expr e : v) add(e); }
         void from_file(char const* file) { Z3_solver_from_file(ctx(), m_solver, file); ctx().check_parser_error(); }

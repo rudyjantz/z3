@@ -16,7 +16,7 @@ using namespace z3;
    Demonstration of how Z3 can be used to prove validity of
    De Morgan's Duality Law: {e not(x and y) <-> (not x) or ( not y) }
 */
-void demorgan() {
+void demorgan(int argc, char **argv) {
     std::cout << "de-Morgan example\n";
     
     context c;
@@ -25,11 +25,21 @@ void demorgan() {
     expr y = c.bool_const("y");
     expr conjecture = (!(x && y)) == (!x || !y);
     
+    printf("cporter demorgan creating solver\n");
     solver s(c);
+    printf("cporter demorgan calling init_mpi\n");
+    s.init_mpi(argc, argv);
+    printf("cporter demorgan setting local search threads\n");
+    s.set("local_search_threads", (unsigned int) 3);
+
     // adding the negation of the conjecture as a constraint.
+    printf("cporter demorgan adding conjecture\n");
     s.add(!conjecture);
+    printf("cporter demorgan printing s\n");
     std::cout << s << "\n";
+    printf("cporter demorgan printing s.to_smt2()\n");
     std::cout << s.to_smt2() << "\n";
+    printf("cporter demorgan switching on check\n");
     switch (s.check()) {
     case unsat:   std::cout << "de-Morgan is valid\n"; break;
     case sat:     std::cout << "de-Morgan is not valid\n"; break;
@@ -1180,10 +1190,10 @@ void mk_model_example() {
 }
 
 
-int main() {
+int main(int argc, char *argv[]) {
 
     try {
-        demorgan(); std::cout << "\n";
+        demorgan(argc, argv); std::cout << "\n";
         find_model_example1(); std::cout << "\n";
         prove_example1(); std::cout << "\n";
         prove_example2(); std::cout << "\n";

@@ -45,6 +45,9 @@ void demorgan(int argc, char **argv) {
     case sat:     std::cout << "de-Morgan is not valid\n"; break;
     case unknown: std::cout << "unknown\n"; break;
     }
+
+    printf("cporter demorgan destroying mpi\n");
+    s.destroy_mpi();
 }
 
 /**

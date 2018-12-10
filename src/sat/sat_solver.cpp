@@ -1231,6 +1231,8 @@ namespace sat {
         lbool result = l_undef;
         bool canceled = false;
         printf("cporter check_par: num_threads(%d)\n", num_threads);
+        printf("cporter check_par: result starts as %d\n", result);
+        printf("cporter check_par: lits(%p)\n", lits);
         #pragma omp parallel for
         for (int i = 0; i < num_threads; ++i) {
             try {
@@ -1241,7 +1243,7 @@ namespace sat {
                 }
                 else if (IS_LOCAL_SEARCH(i)) {
                     printf("cporter: is-local-search\n");
-                    r = ls[i-local_search_offset]->check(num_lits, lits, &par);
+                    r = ls[i-local_search_offset]->check_mpi(num_lits, lits, &par);
                 }
                 else if (IS_UNIT_WALK(i)) {
                     printf("cporter: is-unit-walk\n");

@@ -32,6 +32,8 @@ Revision History:
 // define to update glue during propagation
 #define UPDATE_GLUE
 
+extern int rank;
+
 namespace sat {
 
     solver::solver(params_ref const & p, reslimit& l):
@@ -1241,6 +1243,35 @@ namespace sat {
         printf("cporter check_par: result starts as %d\n", result);
         printf("cporter check_par: lits(%p)\n", lits);
         printf("cporter check_par: num-mpi-procs (%d)\n", num_mpi_procs);
+
+        int tag;
+        tag = 1;
+
+        for(int i = 1; i < num_mpi_procs; i++){
+			//r = ls[i-local_search_offset]->check_mpi(num_lits, lits, &par);
+            int dest;
+            char outmsg;
+
+            //dest   = 1;
+            dest   = i;
+            outmsg = 'm';
+
+            printf("cporter check_par: sending msg to dest (%d)\n", dest);
+            MPI_Send(&outmsg, 1, MPI_CHAR, dest, tag, MPI_COMM_WORLD);
+        }
+
+        MPI_Status Stat;   // required variable for receive routines
+        int count;
+        char inmsg;
+
+        printf("cporter: blocking receive in rank 0\n");
+        MPI_Recv(&inmsg, 1, MPI_CHAR, MPI_ANY_SOURCE, tag, MPI_COMM_WORLD, &Stat);
+        printf("cporter: received back from any source\n");
+        // query recieve Stat variable and print message details
+        MPI_Get_count(&Stat, MPI_CHAR, &count);
+        printf("Task %d: Received %d char(s) from task %d with tag %d \n",
+                rank, count, Stat.MPI_SOURCE, Stat.MPI_TAG);
+
         #pragma omp parallel for
         for (int i = 0; i < num_threads; ++i) {
             try {
@@ -1251,7 +1282,8 @@ namespace sat {
                 }
                 else if (IS_LOCAL_SEARCH(i)) {
                     printf("cporter: is-local-search\n");
-                    r = ls[i-local_search_offset]->check_mpi(num_lits, lits, &par);
+                    //r = ls[i-local_search_offset]->check_mpi(num_lits, lits, &par);
+                    r = ls[i-local_search_offset]->check(num_lits, lits, &par);
                 }
                 else if (IS_UNIT_WALK(i)) {
                     printf("cporter: is-unit-walk\n");

@@ -386,6 +386,7 @@ namespace sat {
     }
 
     void local_search::import(solver& s, bool _init) {        
+        printf("cporter: inside import\n");
         m_is_pb = false;
         m_vars.reset();
         m_constraints.reset();
@@ -434,7 +435,9 @@ namespace sat {
 
         // copy cardinality clauses
         ba_solver* ext = dynamic_cast<ba_solver*>(s.get_extension());
+        printf("cporter checkinge ext (%p)\n", ext);
         if (ext) {
+            printf("cporter ext is non-zero\n");
             unsigned_vector coeffs;
             literal_vector lits;
             for (ba_solver::constraint* cp : ext->m_constraints) {

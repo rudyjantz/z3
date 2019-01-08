@@ -78,3 +78,4 @@ doc/code
 
 *.swp
 src/util/z3_version.h
+tags

@@ -434,6 +434,7 @@ extern "C" {
         LOG_Z3_solver_check_assumptions(c, s, num_assumptions, assumptions);
         RESET_ERROR_CODE();
         init_solver(c, s);
+        printf("cporter: inside Z3_solver_check_assumptions\n");
         return _solver_check(c, s, num_assumptions, assumptions);
         Z3_CATCH_RETURN(Z3_L_UNDEF);
     }

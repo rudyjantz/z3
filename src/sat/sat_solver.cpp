@@ -1244,7 +1244,7 @@ namespace sat {
         printf("cporter check_par: lits(%p)\n", lits);
         printf("cporter check_par: num-mpi-procs (%d)\n", num_mpi_procs);
 
-        int tag;
+        /*int tag;
         tag = 1;
 
         for(int i = 1; i < num_mpi_procs; i++){
@@ -1270,7 +1270,12 @@ namespace sat {
         // query recieve Stat variable and print message details
         MPI_Get_count(&Stat, MPI_CHAR, &count);
         printf("Task %d: Received %d char(s) from task %d with tag %d \n",
-                rank, count, Stat.MPI_SOURCE, Stat.MPI_TAG);
+                rank, count, Stat.MPI_SOURCE, Stat.MPI_TAG);*/
+
+        MPI_Status Stat;   // required variable for receive routines
+        int inmsg;
+        int tag;
+        tag = 1;
 
         #pragma omp parallel for
         for (int i = 0; i < num_threads; ++i) {
@@ -1283,7 +1288,11 @@ namespace sat {
                 else if (IS_LOCAL_SEARCH(i)) {
                     printf("cporter: is-local-search\n");
                     //r = ls[i-local_search_offset]->check_mpi(num_lits, lits, &par);
-                    r = ls[i-local_search_offset]->check(num_lits, lits, &par);
+                    //r = ls[i-local_search_offset]->check(num_lits, lits, &par);
+                    if(rank == 0){
+                        MPI_Recv(&inmsg, 1, MPI_INT, MPI_ANY_SOURCE, tag, MPI_COMM_WORLD, &Stat);
+                        r = (lbool) inmsg;
+                    }
                 }
                 else if (IS_UNIT_WALK(i)) {
                     printf("cporter: is-unit-walk\n");

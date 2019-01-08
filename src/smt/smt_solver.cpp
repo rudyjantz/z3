@@ -187,6 +187,7 @@ namespace smt {
 
         lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override {
             TRACE("solver_na2as", tout << "smt_solver::check_sat_core: " << num_assumptions << "\n";);
+            printf("cporter: check_sat_core\n");
             return m_context.check(num_assumptions, assumptions);
         }
 

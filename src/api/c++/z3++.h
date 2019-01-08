@@ -2184,7 +2184,7 @@ namespace z3 {
             MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
             MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-            if(rank == 0){
+            /*if(rank == 0){
                 printf("numtasks: %d\n", numtasks);
                 return;
             }else if(rank == 1){
@@ -2193,11 +2193,15 @@ namespace z3 {
                 printf("rank is %d. Not supported\n", rank);
                 MPI_Finalize();
                 exit(0);
+            }*/
+
+            if(rank == 0){
+                printf("numtasks: %d\n", numtasks);
             }
         }
 
         void destroy_mpi(void) {
-            int dest;
+            /*int dest;
             int tag;
             char outmsg;
 
@@ -2205,6 +2209,7 @@ namespace z3 {
             tag  = 1;
             dest = 1;
             MPI_Send(&outmsg, 1, MPI_CHAR, dest, tag, MPI_COMM_WORLD);
+            MPI_Finalize();*/
             MPI_Finalize();
         }
         // cporter END

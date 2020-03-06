@@ -62,6 +62,7 @@ namespace sat {
         m_params(p),
         m_par_id(0),
         m_par_syncing_clauses(false) {
+        //enable_trace("sat");
         printf("cporter inside solver()\n");
         init_reason_unknown();
         updt_params(p);
@@ -1074,6 +1075,10 @@ namespace sat {
         if (m_config.m_local_search) {
             return do_local_search(num_lits, lits);
         }
+        printf("cporter check() m_num_threads: %d\n", m_config.m_num_threads);
+        printf("cporter check() m_local_search_threads: %d\n", m_config.m_local_search_threads);
+        printf("cporter check() m_unit_walk_threads: %d\n", m_config.m_unit_walk_threads);
+        printf("cporter check() !m_par: %d\n", !m_par);
         if ((m_config.m_num_threads > 1 || m_config.m_local_search_threads > 0 || m_config.m_unit_walk_threads > 0) && !m_par) {
             SASSERT(scope_lvl() == 0);
             return check_par(num_lits, lits);
@@ -1164,6 +1169,7 @@ namespace sat {
     };
 
     lbool solver::do_local_search(unsigned num_lits, literal const* lits) {
+        printf("cporter do_local_search()\n");
         scoped_limits scoped_rl(rlimit());
         local_search srch;
         srch.config().set_config(m_config);
@@ -1236,13 +1242,13 @@ namespace sat {
         lbool result = l_undef;
         bool canceled = false;
 
-        int num_mpi_procs;
-        MPI_Comm_size(MPI_COMM_WORLD, &num_mpi_procs);
+        //int num_mpi_procs;
+        //MPI_Comm_size(MPI_COMM_WORLD, &num_mpi_procs);
 
         printf("cporter check_par: num_threads(%d)\n", num_threads);
         printf("cporter check_par: result starts as %d\n", result);
         printf("cporter check_par: lits(%p)\n", lits);
-        printf("cporter check_par: num-mpi-procs (%d)\n", num_mpi_procs);
+        //printf("cporter check_par: num-mpi-procs (%d)\n", num_mpi_procs);
 
         /*int tag;
         tag = 1;
@@ -1288,11 +1294,11 @@ namespace sat {
                 else if (IS_LOCAL_SEARCH(i)) {
                     printf("cporter: is-local-search\n");
                     //r = ls[i-local_search_offset]->check_mpi(num_lits, lits, &par);
-                    //r = ls[i-local_search_offset]->check(num_lits, lits, &par);
-                    if(rank == 0){
-                        MPI_Recv(&inmsg, 1, MPI_INT, MPI_ANY_SOURCE, tag, MPI_COMM_WORLD, &Stat);
-                        r = (lbool) inmsg;
-                    }
+                    r = ls[i-local_search_offset]->check(num_lits, lits, &par);
+                    //if(rank == 0){
+                    //    MPI_Recv(&inmsg, 1, MPI_INT, MPI_ANY_SOURCE, tag, MPI_COMM_WORLD, &Stat);
+                    //    r = (lbool) inmsg;
+                    //}
                 }
                 else if (IS_UNIT_WALK(i)) {
                     printf("cporter: is-unit-walk\n");

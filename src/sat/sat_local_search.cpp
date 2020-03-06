@@ -535,6 +535,7 @@ namespace sat {
     }
 
     lbool local_search::check() {
+        printf("cporter: local_search::check() (no args version)\n");
         return check(0, nullptr);
     }
 

@@ -159,6 +159,7 @@ namespace opt {
     }
 
     lbool opt_solver::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
+        printf("cporter: opt_solver::check_sat_core\n");
         TRACE("opt_verbose", {
             tout << "context size: " << m_context.size() << "\n";            
             for (unsigned i = 0; i < m_context.size(); ++i) {

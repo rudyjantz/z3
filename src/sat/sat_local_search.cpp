@@ -547,6 +547,12 @@ namespace sat {
         m_assumptions.append(sz, assumptions);
         unsigned num_units = m_units.size();
         init();
+
+        struct timespec stamp;
+        clock_gettime(CLOCK_MONOTONIC, &stamp);
+        srand((unsigned int) stamp.tv_nsec);
+        m_config.set_random_seed(rand());
+        printf("cporter: manually set m_random_seed to == %u\n", m_config.random_seed());
         walksat();
         
         // remove unit clauses

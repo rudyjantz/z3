@@ -34,6 +34,25 @@ Revision History:
 // define to update glue during propagation
 #define UPDATE_GLUE
 
+#include <unistd.h>
+
+static inline
+unsigned long long time_diff_ns(struct timespec start, struct timespec end)
+{
+    return   (1000000000L * (end.tv_sec - start.tv_sec))
+           + (end.tv_nsec - start.tv_nsec);
+}
+static inline
+unsigned long long time_diff_us(struct timespec start, struct timespec end)
+{
+    return time_diff_ns(start, end) / 1000ULL;
+}
+
+#define DUMP_TIME(t1, t2, timediff) \
+        clock_gettime(CLOCK_MONOTONIC, &t2); \
+        timediff = time_diff_us(t1, t2); \
+        printf(#timediff" (us):     %llu\n", timediff);
+
 namespace sat {
 
 
@@ -1080,13 +1099,21 @@ namespace sat {
         IF_VERBOSE(2, verbose_stream() << "(sat.solver)\n";);
         SASSERT(at_base_lvl());
 
+        printf("cporter: solver::check()\n");
+
         if (m_config.m_local_search) {
+            printf("cporter: calling do_local_search()\n");
             return do_local_search(num_lits, lits);
         }
         if ((m_config.m_num_threads > 1 || m_config.m_local_search_threads > 0 || m_config.m_unit_walk_threads > 0) && !m_par) {
             SASSERT(scope_lvl() == 0);
             return check_par(num_lits, lits);
         }
+        printf("cporter: beyond check_par\n");
+        struct timespec start, end;
+        unsigned long long time_to_check;
+        clock_gettime(CLOCK_MONOTONIC, &start);
+
         flet<bool> _searching(m_searching, true);
         if (m_mc.empty() && gparams::get_ref().get_bool("model_validate", false)) {
             m_clone = alloc(solver, m_params, m_rlimit);
@@ -1103,6 +1130,8 @@ namespace sat {
             cleanup(m_config.m_force_cleanup);
 
             if (m_config.m_unit_walk) {
+                printf("doing unit walk\n");
+                DUMP_TIME(start, end, time_to_check);
                 return do_unit_walk();
             }
             if (m_config.m_gc_burst) {
@@ -1113,14 +1142,19 @@ namespace sat {
             if (m_config.m_max_conflicts > 0 && m_config.m_burst_search > 0) {
                 m_restart_threshold = m_config.m_burst_search;
                 lbool r = bounded_search();
-                if (r != l_undef)
+                if (r != l_undef) {
+                    printf("return case 1\n");
+                    DUMP_TIME(start, end, time_to_check);
                     return r;
+                }
                 pop_reinit(scope_lvl());
                 m_conflicts_since_restart = 0;
                 m_restart_threshold = m_config.m_restart_initial;
             }
 
             if (reached_max_conflicts()) {
+                printf("return case 2\n");
+                DUMP_TIME(start, end, time_to_check);
                 return l_undef;
             }
 
@@ -1129,17 +1163,27 @@ namespace sat {
             if (check_inconsistent()) return l_false;
 
             if (reached_max_conflicts()) {
+                printf("return case 3\n");
+                DUMP_TIME(start, end, time_to_check);
                 return l_undef;
             }
 
+            //struct timespec loop_start, loop_end;
+            //unsigned long long time_to_loop;
             while (true) {
+                //clock_gettime(CLOCK_MONOTONIC, &loop_start);
                 SASSERT(!inconsistent());
 
                 lbool r = bounded_search();
-                if (r != l_undef)
+                if (r != l_undef){
+                    printf("return case 4\n");
+                    DUMP_TIME(start, end, time_to_check);
                     return r;
+                }
 
                 if (reached_max_conflicts()) {
+                    printf("return case 5\n");
+                    DUMP_TIME(start, end, time_to_check);
                     return l_undef;
                 }
 
@@ -1151,14 +1195,18 @@ namespace sat {
                 if (m_config.m_restart_max <= m_restarts) {
                     m_reason_unknown = "sat.max.restarts";
                     IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-restarts\")\n";);
+                    printf("return case 6\n");
+                    DUMP_TIME(start, end, time_to_check);
                     return l_undef;
                 }
                 if (m_config.m_inprocess_max <= m_simplifications) {
                     m_reason_unknown = "sat.max.inprocess";
                     IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-inprocess\")\n";);
+                    printf("return case 7\n");
+                    DUMP_TIME(start, end, time_to_check);
                     return l_undef;
                 }
-
+                //DUMP_TIME(loop_start, loop_end, time_to_loop);
             }
         }
         catch (const abort_solver &) {
@@ -1203,7 +1251,7 @@ namespace sat {
         for (int i = 0; i < num_local_search; ++i) {
             local_search* l = alloc(local_search);
             l->import(*this, false);
-            l->config().set_random_seed(m_config.m_random_seed + i);
+            //l->config().set_random_seed(m_config.m_random_seed + i);
             ls.push_back(l);
         }
 
@@ -1243,20 +1291,48 @@ namespace sat {
         unsigned error_code = 0;
         lbool result = l_undef;
         bool canceled = false;
+
+        struct timespec start, middle, end;
+        clock_gettime(CLOCK_MONOTONIC, &start);
         #pragma omp parallel for
         for (int i = 0; i < num_threads; ++i) {
             try {
                 lbool r = l_undef;
                 if (IS_AUX_SOLVER(i)) {
+                    printf("cporter: IS_AUX_SOLVER i == %d\n", i);
                     r = par.get_solver(i).check(num_lits, lits);
                 }
                 else if (IS_LOCAL_SEARCH(i)) {
+                    //printf("time is %u\n", time(0));
+                    //struct timespec stamp;
+
+                    //clock_gettime(CLOCK_MONOTONIC, &stamp);
+                    //printf("clock_gettime ns is %u\n", (unsigned int) stamp.tv_nsec);
+
+                    printf("cporter: IS_LOCAL_SEARCH i == %d\n", i);
+
+                    //clock_gettime(CLOCK_MONOTONIC, &stamp);
+                    //printf("clock_gettime ns again is %u\n", (unsigned int) stamp.tv_nsec);
+                    //printf("time again is %u\n", time(0));
+
+                    //int rank;
+                    //MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+                    //printf("cporter: rank is %d\n", rank);
+                    //while((ls[i-local_search_offset])->rlimit().inc()){
+                    //    sleep(1);
+                    //}
                     r = ls[i-local_search_offset]->check(num_lits, lits, &par);
                 }
                 else if (IS_UNIT_WALK(i)) {
+                    printf("cporter: IS_UNIT_WALK i == %d\n", i);
                     r = uw[i-unit_walk_offset]->check(num_lits, lits);
                 }
                 else {
+                    printf("cporter: fall-through i == %d\n", i);
+                    //while(!(this->canceled())){
+                    //    printf("cporter: fall-through sleeping\n");
+                    //    sleep(1);
+                    //}
                     r = check(num_lits, lits);
                 }
                 bool first = false;
@@ -1264,10 +1340,13 @@ namespace sat {
                 {
                     if (finished_id == -1) {
                         finished_id = i;
+                        printf("cporter: finished_id is == %d\n", finished_id);
+                        clock_gettime(CLOCK_MONOTONIC, &middle);
                         first = true;
                         result = r;
                     }
                 }
+
                 if (first) {
                     for (unsigned j = 0; j < ls.size(); ++j) {
                         ls[j]->rlimit().cancel();
@@ -1297,6 +1376,12 @@ namespace sat {
                 ex_kind = DEFAULT_EX;    
             }
         }
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        unsigned long long time_to_sat, time_to_exit_loop;
+        time_to_sat       = time_diff_us(start, middle);
+        time_to_exit_loop = time_diff_us(middle, end);
+        printf("time_to_sat (us):       %llu\n", time_to_sat);
+        printf("time_to_exit_loop (us): %llu\n", time_to_exit_loop);
         
         if (IS_AUX_SOLVER(finished_id)) {
             m_stats = par.get_solver(finished_id).m_stats;
@@ -1447,12 +1532,19 @@ namespace sat {
     }
 
     lbool solver::bounded_search() {
+        //struct timespec bounded_search_start, bounded_search_end;
+        //unsigned long long time_to_bounded_search;
+        //clock_gettime(CLOCK_MONOTONIC, &bounded_search_start);
         while (true) {
             checkpoint();
             bool done = false;
             while (!done) {
                 lbool is_sat = propagate_and_backjump_step(done);
-                if (is_sat != l_true) return is_sat;
+                if (is_sat != l_true){
+                    //DUMP_TIME(bounded_search_start, bounded_search_end,
+                    //          time_to_bounded_search);
+                    return is_sat;
+                }
             }
 
             gc();
@@ -1460,6 +1552,8 @@ namespace sat {
             if (!decide()) {
                 lbool is_sat = final_check();
                 if (is_sat != l_undef) {
+                    //DUMP_TIME(bounded_search_start, bounded_search_end,
+                    //          time_to_bounded_search);
                     return is_sat;
                 }
             }
@@ -1467,24 +1561,35 @@ namespace sat {
     }
 
     lbool solver::propagate_and_backjump_step(bool& done) {
+        //struct timespec prop_and_jump_start, prop_and_jump_end;
+        //unsigned long long time_to_prop_and_jump;
+        //clock_gettime(CLOCK_MONOTONIC, &prop_and_jump_start);
         done = true;
         propagate(true);
         if (!inconsistent()) {
-            return should_restart() ? l_undef : l_true; 
+            lbool rv = should_restart() ? l_undef : l_true; 
+            //DUMP_TIME(prop_and_jump_start, prop_and_jump_end, time_to_prop_and_jump);
+            return rv;
         }
-        if (!resolve_conflict())
+        if (!resolve_conflict()){
+            //DUMP_TIME(prop_and_jump_start, prop_and_jump_end, time_to_prop_and_jump);
             return l_false;
-        if (reached_max_conflicts()) 
+        }
+        if (reached_max_conflicts()) {
+            //DUMP_TIME(prop_and_jump_start, prop_and_jump_end, time_to_prop_and_jump);
             return l_undef;
+        }
         if (at_base_lvl()) {
             cleanup(false); // cleaner may propagate frozen clauses
             if (inconsistent()) {
                 TRACE("sat", tout << "conflict at level 0\n";);
+                //DUMP_TIME(prop_and_jump_start, prop_and_jump_end, time_to_prop_and_jump);
                 return l_false;
             }
             gc();
         }
         done = false;
+        //DUMP_TIME(prop_and_jump_start, prop_and_jump_end, time_to_prop_and_jump);
         return l_true;
     }
 
@@ -1670,7 +1775,11 @@ namespace sat {
        \brief Apply all simplifications.
     */
     void solver::simplify_problem() {
+        //struct timespec simplify_problem_start, simplify_problem_end;
+        //unsigned long long time_to_simplify_problem;
+        //clock_gettime(CLOCK_MONOTONIC, &simplify_problem_start);
         if (m_conflicts_since_init < m_next_simplify) {
+            //DUMP_TIME(simplify_problem_start, simplify_problem_end, time_to_simplify_problem);
             return;
         }
         log_stats();
@@ -1742,6 +1851,7 @@ namespace sat {
             display(ous);
         }
 #endif
+        //DUMP_TIME(simplify_problem_start, simplify_problem_end, time_to_simplify_problem);
     }
 
     bool solver::set_root(literal l, literal r) {
@@ -2028,15 +2138,60 @@ namespace sat {
     // -----------------------
 
     void solver::gc() {
-        if (m_conflicts_since_gc <= m_gc_threshold)
+        //struct timespec gc_start, gc_end;
+        //unsigned long long time_to_gc;
+        //clock_gettime(CLOCK_MONOTONIC, &gc_start);
+        static int count = 0;
+        static int proof = 0;
+        //printf("cporter: inside gc() with m_num_checkpoints == %d\n", m_num_checkpoints);
+        display_status(std::cout);
+        printf("%-10u %-10u %-10u %-10u %-10u %-10u %-10u %-10u %-10u %-10u %-10u %-10u %-10u %-10u %-10u %-10u %-10u %-10u %-10u\n",
+          m_stats.m_mk_var,
+          m_stats.m_mk_bin_clause,
+          m_stats.m_mk_ter_clause,
+          m_stats.m_mk_clause,
+          m_stats.m_conflict,
+          m_stats.m_propagate,
+          m_stats.m_bin_propagate,
+          m_stats.m_ter_propagate,
+          m_stats.m_decision,
+          m_stats.m_restart,
+          m_stats.m_gc_clause,
+          m_stats.m_del_clause,
+          m_stats.m_minimized_lits,
+          m_stats.m_dyn_sub_res,
+          m_stats.m_non_learned_generation,
+          m_stats.m_blocked_corr_sets,
+          m_stats.m_elim_var_res,
+          m_stats.m_elim_var_bdd,
+          m_stats.m_units
+        );
+        // max: 253190
+        // max: 122237
+        //if(count > 150000){
+        if(count > 75000){
+            m_config.m_gc_strategy = GC_GLUE;
+            printf("cporter: setting strategy to GC_GLUE\n");
+            count = 0;
+        }
+        count++;
+        if (m_conflicts_since_gc <= m_gc_threshold){
+            //DUMP_TIME(gc_start, gc_end, time_to_gc);
             return;
-        if (m_config.m_gc_strategy == GC_DYN_PSM && !at_base_lvl())
+        }
+        if (m_config.m_gc_strategy == GC_DYN_PSM && !at_base_lvl()){
+            //DUMP_TIME(gc_start, gc_end, time_to_gc);
             return;
+        }
         unsigned gc = m_stats.m_gc_clause;
         IF_VERBOSE(10, verbose_stream() << "(sat.gc)\n";);
         CASSERT("sat_gc_bug", check_invariant());
         switch (m_config.m_gc_strategy) {
         case GC_GLUE:
+            if(!proof){
+                proof = 1;
+                printf("cporter: proof we gc_glue() at least once\n");
+            }
             gc_glue();
             break;
         case GC_PSM:
@@ -2049,8 +2204,10 @@ namespace sat {
             gc_psm_glue();
             break;
         case GC_DYN_PSM:
-            if (!at_base_lvl()) 
+            if (!at_base_lvl()){
+                //DUMP_TIME(gc_start, gc_end, time_to_gc);
                 return;
+            }
             gc_dyn_psm();
             break;
         default:
@@ -2064,6 +2221,7 @@ namespace sat {
         m_conflicts_since_gc = 0;
         m_gc_threshold += m_config.m_gc_increment;
         CASSERT("sat_gc_bug", check_invariant());
+        //DUMP_TIME(gc_start, gc_end, time_to_gc);
     }
 
     /**

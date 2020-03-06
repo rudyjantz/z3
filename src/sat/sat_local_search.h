@@ -48,7 +48,14 @@ namespace sat {
 
     public:
         local_search_config() {
+
+            //struct timespec stamp;
+            //clock_gettime(CLOCK_MONOTONIC, &stamp);
+            //srand((unsigned int) stamp.tv_nsec);
+            //m_random_seed = rand();
+            //printf("cporter: m_random_seed from local_search_config == %u\n", m_random_seed);
             m_random_seed = 0;
+
             m_best_known_value = INT_MAX;
             m_mode = local_search_mode::wsat;
             m_phase_sticky = false;

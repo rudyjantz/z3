@@ -33,6 +33,7 @@ Revision History:
 #include "smt/theory_seq_empty.h"
 #include "smt/seq_skolem.h"
 #include "smt/seq_axioms.h"
+#include "smt/seq_unicode.h"
 #include "smt/seq_offset_eq.h"
 
 namespace smt {
@@ -367,8 +368,6 @@ namespace smt {
         };
         typedef hashtable<rational, rational::hash_proc, rational::eq_proc> rational_set;
 
-        ast_manager&               m;
-        theory_seq_params const&   m_params;
         dependency_manager         m_dm;
         solution_map               m_rep;        // unification representative.
         scoped_vector<eq>          m_eqs;        // set of current equations.
@@ -404,13 +403,13 @@ namespace smt {
         arith_util       m_autil;
         seq_skolem       m_sk;
         seq_axioms       m_ax;
+        seq_unicode      m_unicode;
         arith_value      m_arith_value;
         th_trail_stack   m_trail_stack;
         stats            m_stats;
         ptr_vector<expr> m_todo, m_concat;
         expr_ref_vector  m_ls, m_rs, m_lhs, m_rhs;
         expr_ref_pair_vector m_new_eqs;
-        bool             m_has_seq;
 
         // maintain automata with regular expressions.
         scoped_ptr_vector<eautomaton>  m_automata;
@@ -420,6 +419,8 @@ namespace smt {
         literal                        m_max_unfolding_lit;
         vector<s_in_re>                m_s_in_re;
 
+        expr*                          m_unhandled_expr;
+        bool                           m_has_seq;
         bool                           m_new_solution;     // new solution added
         bool                           m_new_propagation;  // new propagation to core
         re2automaton                   m_mk_aut;
@@ -427,7 +428,6 @@ namespace smt {
         obj_hashtable<expr>            m_fixed;            // string variables that are fixed length.
         obj_hashtable<expr>            m_is_digit;         // expressions that have been constrained to be digits
 
-        void init(context* ctx) override;
         final_check_status final_check_eh() override;
         bool internalize_atom(app* atom, bool) override;
         bool internalize_term(app*) override;
@@ -443,7 +443,7 @@ namespace smt {
         void relevant_eh(app* n) override;
         bool should_research(expr_ref_vector &) override;
         void add_theory_assumptions(expr_ref_vector & assumptions) override;
-        theory* mk_fresh(context* new_ctx) override { return alloc(theory_seq, new_ctx->get_manager(), new_ctx->get_fparams()); }
+        theory* mk_fresh(context* new_ctx) override { return alloc(theory_seq, *new_ctx); }
         char const * get_name() const override { return "seq"; }
         bool include_func_interp(func_decl* f) override { return m_util.str.is_nth_u(f); }
         bool is_safe_to_copy(bool_var v) const override;
@@ -683,9 +683,10 @@ namespace smt {
         std::ostream& display_nc(std::ostream& out, nc const& nc) const;
         std::ostream& display_lit(std::ostream& out, literal l) const;
     public:
-        theory_seq(ast_manager& m, theory_seq_params const & params);
+        theory_seq(context& ctx);
         ~theory_seq() override;
 
+        void init() override;
         // model building
         app* mk_value(app* a);
 

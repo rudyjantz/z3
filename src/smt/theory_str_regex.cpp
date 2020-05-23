@@ -48,7 +48,6 @@ namespace smt {
 
 
     void theory_str::solve_regex_automata() {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         // TODO since heuristics might fail, the "no progress" flag might need to be handled specially here
@@ -813,9 +812,11 @@ namespace smt {
             zstring str1, str2;
             u.str.is_string(sub1, str1);
             u.str.is_string(sub2, str2);
-            SASSERT(str1.length() == 1);
-            SASSERT(str2.length() == 1);
-            return 1 + str2[0] - str1[0];
+            if (str1.length() == 1 && str2.length() == 1) {
+                return 1 + str2[0] - str1[0];
+            } else {
+                return 1;
+            }
         } else if (u.re.is_full_char(re) || u.re.is_full_seq(re)) {
             return 1;
         } else {
@@ -911,7 +912,7 @@ namespace smt {
             return check_regex_length_linearity_helper(sub1, already_star);
         } else {
             TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
-            UNREACHABLE(); return false;
+            return false;
         }
     }
 
@@ -965,9 +966,13 @@ namespace smt {
             zstring str1, str2;
             u.str.is_string(sub1, str1);
             u.str.is_string(sub2, str2);
-            SASSERT(str1.length() == 1);
-            SASSERT(str2.length() == 1);
-            lens.insert(1);
+            // re.range is a language of singleton strings if both of its arguments are;
+            // otherwise it is the empty language
+            if (str1.length() == 1 && str2.length() == 1) {
+                lens.insert(1);
+            } else {
+                lens.insert(0);
+            }
         } else if (u.re.is_full_char(re)) {
             lens.insert(1);
         } else if (u.re.is_full_seq(re)) {
@@ -999,7 +1004,6 @@ namespace smt {
      */
     expr_ref theory_str::infer_all_regex_lengths(expr * lenVar, expr * re, expr_ref_vector & freeVariables) {
         ENSURE(u.is_re(re));
-        context & ctx = get_context();
         ast_manager & m = get_manager();
         expr * sub1;
         expr * sub2;
@@ -1127,7 +1131,6 @@ namespace smt {
      */
     void theory_str::find_automaton_initial_bounds(expr * str_in_re, eautomaton * aut) {
         ENSURE(aut != nullptr);
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         expr_ref_vector rhs(m);
@@ -1147,8 +1150,9 @@ namespace smt {
                 expr_ref rhs2(m_autil.mk_ge(strlen, m_autil.mk_numeral(nonzero_lower_bound, true)), m);
                 rhs.push_back(m.mk_or(rhs1, rhs2));
             } else {
-                // shouldn't happen
-                UNREACHABLE();
+                // length of solution can ONLY be 0
+                expr_ref rhs1(ctx.mk_eq_atom(strlen, m_autil.mk_numeral(rational::zero(), true)), m);
+                rhs.push_back(rhs1);
             }
         } else {
             // no solution at 0
@@ -1157,8 +1161,9 @@ namespace smt {
                 expr_ref rhs2(m_autil.mk_ge(strlen, m_autil.mk_numeral(nonzero_lower_bound, true)), m);
                 rhs.push_back(rhs2);
             } else {
-                // shouldn't happen
-                UNREACHABLE();
+                // probably no solutions at all; just assume that 0 is a (safe) lower bound
+                regex_last_lower_bound.insert(str, rational::zero());
+                rhs.reset();
             }
         }
         // TODO upper bound check
@@ -1362,7 +1367,6 @@ namespace smt {
     }
 
     expr_ref theory_str::aut_path_rewrite_constraint(expr * cond, expr * ch_var) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         expr_ref retval(m);
@@ -1419,7 +1423,6 @@ namespace smt {
      */
     expr_ref theory_str::generate_regex_path_constraints(expr * stringTerm, eautomaton * aut, rational lenVal, expr_ref & characterConstraints) {
         ENSURE(aut != nullptr);
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         if (lenVal.is_zero()) {

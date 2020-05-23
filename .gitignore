@@ -1,4 +1,5 @@
 *~
+rebase.cmd
 *.pyc
 *.pyo
 # Ignore callgrind files
@@ -80,3 +81,6 @@ doc/code
 .vs
 examples/**/obj
 CMakeSettings.json
+*.swp
+tags
+src/util/z3_version.h

@@ -2249,6 +2249,27 @@ namespace sat {
 
     void solver::do_gc() {
         if (!should_gc()) return;
+         printf("%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",
+          m_stats.m_mk_var,
+          m_stats.m_mk_bin_clause,
+          m_stats.m_mk_ter_clause,
+          m_stats.m_mk_clause,
+          m_stats.m_conflict,
+          m_stats.m_propagate,
+          m_stats.m_bin_propagate,
+          m_stats.m_ter_propagate,
+          m_stats.m_decision,
+          m_stats.m_restart,
+          m_stats.m_gc_clause,
+          m_stats.m_del_clause,
+          m_stats.m_minimized_lits,
+          m_stats.m_dyn_sub_res,
+          m_stats.m_non_learned_generation,
+          m_stats.m_blocked_corr_sets,
+          m_stats.m_elim_var_res,
+          m_stats.m_elim_var_bdd,
+          m_stats.m_units
+        );
         TRACE("sat", tout << m_conflicts_since_gc << " " << m_gc_threshold << "\n";);
         unsigned gc = m_stats.m_gc_clause;
         m_conflicts_since_gc = 0;

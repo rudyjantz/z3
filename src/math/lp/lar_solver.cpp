@@ -307,8 +307,8 @@ void lar_solver::fill_explanation_from_crossed_bounds_column(explanation & evide
     
     // this is the case when the lower bound is in conflict with the upper one
     const ul_pair & ul =  m_columns_to_ul_pairs[m_crossed_bounds_column];
-    evidence.push_justification(ul.upper_bound_witness(),  numeric_traits<mpq>::one());
-    evidence.push_justification(ul.lower_bound_witness(), -numeric_traits<mpq>::one());
+    evidence.add_with_coeff(ul.upper_bound_witness(),  numeric_traits<mpq>::one());
+    evidence.add_with_coeff(ul.lower_bound_witness(), -numeric_traits<mpq>::one());
 }
 
     
@@ -1097,9 +1097,9 @@ bool lar_solver::inf_explanation_is_correct() const {
 
 mpq lar_solver::sum_of_right_sides_of_explanation(explanation& exp) const {
     mpq ret = numeric_traits<mpq>::zero();
-    for (auto & it : exp) {
-        mpq coeff = it.first;
-        constraint_index con_ind = it.second;
+    for (auto it : exp) {
+        mpq coeff = it.coeff();
+        constraint_index con_ind = it.ci();
         lp_assert(m_constraints.valid_index(con_ind));
         ret += (m_constraints[con_ind].rhs() - m_constraints[con_ind].get_free_coeff_of_left_side()) * coeff;
     }
@@ -1195,7 +1195,7 @@ void lar_solver::get_infeasibility_explanation_for_inf_sign(
 
         constraint_index bound_constr_i = adj_sign < 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
         lp_assert(m_constraints.valid_index(bound_constr_i));
-        exp.push_justification(bound_constr_i, coeff);
+        exp.add_with_coeff(bound_constr_i, coeff);
     } 
 }
 
@@ -1365,7 +1365,7 @@ void lar_solver::pop() {
 }
 
 bool lar_solver::column_represents_row_in_tableau(unsigned j) {
-    return m_columns_to_ul_pairs()[j].m_i != UINT_MAX;
+    return m_columns_to_ul_pairs()[j].associated_with_row();
 }
 
 void lar_solver::make_sure_that_the_bottom_right_elem_not_zero_in_tableau(unsigned i, unsigned j) {
@@ -1602,7 +1602,7 @@ var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
         return local_j;    
     lp_assert(m_columns_to_ul_pairs.size() == A_r().column_count());
     local_j = A_r().column_count();
-    m_columns_to_ul_pairs.push_back(ul_pair(UINT_MAX));
+    m_columns_to_ul_pairs.push_back(ul_pair(false)); // not associated with a row
     while (m_usage_in_terms.size() <= ext_j) {
         m_usage_in_terms.push_back(0);
     }
@@ -1628,7 +1628,7 @@ void lar_solver::add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int) {
     register_new_ext_var_index(ext_j, is_int);
     m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
     m_columns_with_changed_bound.increase_size_by_one();
-    add_new_var_to_core_fields_for_mpq(false);
+    add_new_var_to_core_fields_for_mpq(false); // false for not adding a row
     if (use_lu())
         add_new_var_to_core_fields_for_doubles(false);
 }
@@ -1759,7 +1759,7 @@ void lar_solver::add_row_from_term_no_constraint(const lar_term * term, unsigned
     register_new_ext_var_index(term_ext_index, term_is_int(term));
     // j will be a new variable
     unsigned j = A_r().column_count();
-    ul_pair ul(j);
+    ul_pair ul(true); // to mark this column as associated_with_row
     m_columns_to_ul_pairs.push_back(ul);
     add_basic_var_to_core_fields();
     if (use_tableau()) {

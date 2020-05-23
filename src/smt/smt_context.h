@@ -107,6 +107,7 @@ namespace smt {
         // enodes. Examples: boolean expression nested in an
         // uninterpreted function.
         expr_ref_vector             m_e_internalized_stack; // stack of the expressions already internalized as enodes.
+        quantifier_ref_vector       m_l_internalized_stack;
 
         ptr_vector<justification>   m_justifications;
 
@@ -734,6 +735,10 @@ namespace smt {
 
         bool ts_visit_children(expr * n, bool gate_ctx, svector<int> & tcolors, svector<int> & fcolors, svector<expr_bool_pair> & todo);
 
+        svector<expr_bool_pair> ts_todo;
+        svector<int>      tcolors;
+        svector<int>      fcolors;
+
         void top_sort_expr(expr * n, svector<expr_bool_pair> & sorted_exprs);
 
         void assert_default(expr * n, proof * pr);
@@ -776,7 +781,6 @@ namespace smt {
             void undo(context & ctx) override { ctx.undo_mk_bool_var(); }
         };
         mk_bool_var_trail   m_mk_bool_var_trail;
-
         void undo_mk_bool_var();
 
         friend class mk_enode_trail;
@@ -784,10 +788,17 @@ namespace smt {
         public:
             void undo(context & ctx) override { ctx.undo_mk_enode(); }
         };
-
         mk_enode_trail   m_mk_enode_trail;
-
         void undo_mk_enode();
+
+        friend class mk_lambda_trail;
+        class mk_lambda_trail : public trail<context> {
+        public:
+            void undo(context & ctx) override { ctx.undo_mk_lambda(); }
+        };
+        mk_lambda_trail   m_mk_lambda_trail;
+        void undo_mk_lambda();
+
 
         void apply_sort_cnstr(app * term, enode * e);
 
@@ -837,7 +848,7 @@ namespace smt {
 
         void mk_or_cnstr(app * n);
 
-        void mk_iff_cnstr(app * n);
+        void mk_iff_cnstr(app * n, bool sign);
 
         void mk_ite_cnstr(app * n);
 
@@ -1487,7 +1498,7 @@ namespace smt {
         //typedef uint_set index_set;
         u_map<index_set> m_antecedents;
         obj_map<expr, expr*> m_var2orig;
-        obj_map<expr, expr*> m_assumption2orig;
+        u_map<expr*> m_assumption2orig;
         obj_map<expr, expr*> m_var2val;
         void extract_fixed_consequences(literal lit, index_set const& assumptions, expr_ref_vector& conseq);
         void extract_fixed_consequences(unsigned& idx, index_set const& assumptions, expr_ref_vector& conseq);

@@ -23,14 +23,12 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
-#include "util/ref_pair_vector.h"
 #include "util/params.h"
 #include "util/lbool.h"
 #include "util/sign.h"
 #include "math/automata/automaton.h"
 #include "math/automata/symbolic_automata.h"
 
-typedef ref_pair_vector<expr, ast_manager> expr_ref_pair_vector;
 
 inline std::ostream& operator<<(std::ostream& out, expr_ref_pair_vector const& es) {
     for (auto const& p : es) {
@@ -134,6 +132,14 @@ class seq_rewriter {
     }
     length_comparison compare_lengths(unsigned sza, expr* const* as, unsigned szb, expr* const* bs);
 
+
+    // Support for regular expression derivatives
+    bool get_head_tail(expr* e, expr_ref& head, expr_ref& tail);
+    expr_ref is_nullable(expr* r);
+    expr_ref kleene_and(expr* cond, expr* r);
+    expr_ref kleene_predicate(expr* cond, sort* seq_sort);
+    expr_ref derivative(expr* hd, expr* r);
+
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_length(expr* a, expr_ref& result);
@@ -145,6 +151,9 @@ class seq_rewriter {
     br_status mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result);
     br_status mk_seq_last_index(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& result);
+    br_status mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& result);
+    br_status mk_seq_replace_re_all(expr* a, expr* b, expr* c, expr_ref& result);
+    br_status mk_seq_replace_re(expr* a, expr* b, expr* c, expr_ref& result);
     br_status mk_seq_prefix(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_suffix(expr* a, expr* b, expr_ref& result);
     br_status mk_str_units(func_decl* f, expr_ref& result);
@@ -154,15 +163,26 @@ class seq_rewriter {
     br_status mk_str_to_regexp(expr* a, expr_ref& result);
     br_status mk_str_le(expr* a, expr* b, expr_ref& result);
     br_status mk_str_lt(expr* a, expr* b, expr_ref& result);
+    br_status mk_str_from_code(expr* a, expr_ref& result);
+    br_status mk_str_to_code(expr* a, expr_ref& result);
+    br_status mk_str_is_digit(expr* a, expr_ref& result);
     br_status mk_re_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_re_union(expr* a, expr* b, expr_ref& result);
     br_status mk_re_inter(expr* a, expr* b, expr_ref& result);
     br_status mk_re_complement(expr* a, expr_ref& result);
     br_status mk_re_star(expr* a, expr_ref& result);
+    br_status mk_re_diff(expr* a, expr* b, expr_ref& result);
     br_status mk_re_plus(expr* a, expr_ref& result);
     br_status mk_re_opt(expr* a, expr_ref& result);
+    br_status mk_re_power(func_decl* f, expr* a, expr_ref& result);
     br_status mk_re_loop(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result);
     br_status mk_re_range(expr* lo, expr* hi, expr_ref& result);
+    br_status lift_ite(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
+    br_status reduce_re_eq(expr* a, expr* b, expr_ref& result);
+    br_status reduce_re_is_empty(expr* r, expr_ref& result);
+
+
+	br_status mk_bool_app_helper(bool is_and, unsigned n, expr* const* args, expr_ref& result);
 
     bool cannot_contain_prefix(expr* a, expr* b);
     bool cannot_contain_suffix(expr* a, expr* b);
@@ -192,12 +212,13 @@ class seq_rewriter {
     void remove_empty_and_concats(expr_ref_vector& es);
     void remove_leading(unsigned n, expr_ref_vector& es);
 
-public:    
+public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         m_util(m), m_autil(m), m_re2aut(m), m_es(m), m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
     }
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
+    seq_util const& u() const { return m_util; }
 
     void updt_params(params_ref const & p);
     static void get_param_descrs(param_descrs & r);
@@ -205,6 +226,7 @@ public:
     void set_solver(expr_solver* solver) { m_re2aut.set_solver(solver); }
     bool has_solver() { return m_re2aut.has_solver(); }
 
+    bool coalesce_chars() const { return m_coalesce_chars; }
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
@@ -216,6 +238,8 @@ public:
     bool reduce_contains(expr* a, expr* b, expr_ref_vector& disj);
 
     void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_pair_vector& new_eqs);
+
+    br_status mk_bool_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
 
 
 };

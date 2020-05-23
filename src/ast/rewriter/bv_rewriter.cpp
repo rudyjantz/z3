@@ -510,6 +510,20 @@ br_status bv_rewriter::mk_leq_core(bool is_signed, expr * a, expr * b, expr_ref 
         return BR_REWRITE2;
     }
 
+    // (bvule r1 (+ r2 a)) -> 
+    // for r1 = r2, (bvule a (2^n - r2 - 1)) 
+    // other cases r1 > r2, r1 < r2 are TBD
+    if (!is_signed && is_num1 && m_util.is_bv_add(b, a1, a2) && is_numeral(a1, r2, sz)) {
+        result = m_util.mk_ule(a2, m_util.mk_numeral(-r2 - 1, sz));
+        if (r1 > r2) {
+            result = m().mk_and(result, m_util.mk_ule(m_util.mk_numeral(r1-r2, sz), a2));
+        }
+        else if (r1 < r2) {
+            result = m().mk_or(result, m_util.mk_ule(m_util.mk_numeral(r1-r2, sz), a2));
+        }
+        return BR_REWRITE2;
+    }
+        
     if (m_le_extra) {
         const br_status cst = rw_leq_concats(is_signed, a, b, result);
         if (cst != BR_FAILED) {
@@ -1322,6 +1336,26 @@ br_status bv_rewriter::mk_bv_smod_core(expr * arg1, expr * arg2, bool hi_div0, e
             result = mk_numeral(0, bv_size);
             return BR_REWRITE2;
         }
+
+#if 0       
+        expr* a = nullptr, *b = nullptr;
+        if (r2.is_pos() && 
+            r2.get_num_bits() + 1 < bv_size &&
+            m_util.is_bv_mul(arg1, a, b) &&            
+            !m_util.is_concat(a) && 
+            !m_util.is_concat(b)) {
+            unsigned nb = r2.get_num_bits();
+            expr_ref a1(m_util.mk_bv_smod(a, arg2), m());
+            expr_ref a2(m_util.mk_bv_smod(b, arg2), m());
+            a1 = m_util.mk_concat( mk_numeral(0, bv_size - nb), m_mk_extract(nb-1,0,a1));
+            a2 = m_util.mk_concat( mk_numeral(0, bv_size - nb), m_mk_extract(nb-1,0,a2));
+            result = m_util.mk_bv_mul(a1, a2);
+            std::cout << result << "\n";
+            result = m_util.mk_bv_smod(result, arg2);
+            return BR_REWRITE_FULL;
+        }
+#endif
+        
     }
 
     if (hi_div0) {

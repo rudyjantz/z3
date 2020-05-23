@@ -136,6 +136,13 @@ namespace spacer {
     mk_epp(ast *t, ast_manager &m, unsigned indent = 0, unsigned num_vars = 0, char const * var_prefix = nullptr);
         void rw(expr *e, expr_ref &out);
     };
+
+    bool is_clause(ast_manager &m, expr *n); 
+    bool is_literal(ast_manager &m, expr *n);
+    bool is_atom(ast_manager &m, expr *n);
+
+    // set f to true in model
+    void set_true_in_mdl(model &model, func_decl *f);
 }
 
 #endif

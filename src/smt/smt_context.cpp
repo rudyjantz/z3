@@ -62,6 +62,7 @@ namespace smt {
         m_fingerprints(m, m_region),
         m_b_internalized_stack(m),
         m_e_internalized_stack(m),
+        m_l_internalized_stack(m),
         m_final_check_idx(0),
         m_is_auxiliary(false),
         m_par(nullptr),
@@ -763,7 +764,6 @@ namespace smt {
             // Common case: r2 and r1 have at most one theory var.
             theory_id  t2 = r2->m_th_var_list.get_th_id();
             theory_id  t1 = r1->m_th_var_list.get_th_id();
-            // verbose_stream() << "[merge_theory_vars] t2: " << t2 << ", t1: " << t1 << "\n";
             theory_var v2 = m_fparams.m_new_core2th_eq ? get_closest_var(n2, t2) : r2->m_th_var_list.get_th_var();
             theory_var v1 = m_fparams.m_new_core2th_eq ? get_closest_var(n1, t1) : r1->m_th_var_list.get_th_var();
             TRACE("merge_theory_vars",
@@ -1422,8 +1422,8 @@ namespace smt {
             TRACE("push_new_th_diseqs", tout << m.get_family_name(th->get_id()) << " not using diseqs\n";);
             return;
         }
-        TRACE("push_new_th_diseqs", tout << "#" << r->get_owner_id() << " v" << v << "\n";);
         theory_id th_id = th->get_id();
+        TRACE("push_new_th_diseqs", tout << "#" << r->get_owner_id() << " " << mk_bounded_pp(r->get_owner(), m) << " v" << v << " th: " << th_id << "\n";);
         for (enode * parent : r->get_parents()) {
             CTRACE("parent_bug", parent == 0, tout << "#" << r->get_owner_id() << ", num_parents: " << r->get_num_parents() << "\n"; display(tout););
             if (parent->is_eq()) {
@@ -1601,6 +1601,11 @@ namespace smt {
             if (inconsistent())
                 return false;
         }
+#if 0
+        if (at_search_level() && induction::should_try(*this)) {
+            get_induction()();
+        }
+#endif
         return true;
     }
 
@@ -2827,9 +2832,8 @@ namespace smt {
         }
         TRACE("internalize", tout << this << " " << th->get_family_id() << "\n";);
         SASSERT(std::find(m_theory_set.begin(), m_theory_set.end(), th) == m_theory_set.end());
-        SASSERT(!already_internalized_theory(th));
-        th->init(this);
         m_theories.register_plugin(th);
+        th->init();
         m_theory_set.push_back(th);
         {
 #ifdef Z3DEBUG
@@ -3014,7 +3018,8 @@ namespace smt {
                     literal l2 = *set_it;
                     if (l2 != l) {
                         b_justification js(l);
-                        TRACE("theory_case_split", tout << "case split literal "; l2.display(tout, m, m_bool_var2expr.c_ptr()););
+                        TRACE("theory_case_split", tout << "case split literal "; l2.display(tout, m, m_bool_var2expr.c_ptr()); tout << std::endl;);
+                        if (l2 == true_literal || l2 == false_literal || l2 == null_literal) continue;
                         assign(~l2, js);
                         if (inconsistent()) {
                             TRACE("theory_case_split", tout << "conflict detected!" << std::endl;);
@@ -3641,7 +3646,10 @@ namespace smt {
         if (status == l_true && m_qmanager->has_quantifiers()) {
             // possible outcomes   DONE l_true, DONE l_undef, CONTINUE
             mk_proto_model();
-            quantifier_manager::check_model_result cmr = m_qmanager->check_model(m_proto_model.get(), m_model_generator->get_root2value());
+            quantifier_manager::check_model_result cmr = quantifier_manager::UNKNOWN;
+            if (m_proto_model.get()) {
+                cmr = m_qmanager->check_model(m_proto_model.get(), m_model_generator->get_root2value());
+            }
             switch (cmr) {
             case quantifier_manager::SAT:
                 return false;
@@ -4467,7 +4475,7 @@ namespace smt {
 
     bool context::has_case_splits() {
         for (unsigned i = get_num_b_internalized(); i-- > 0; ) {
-            if (get_assignment(i) == l_undef)
+            if (is_relevant(i) && get_assignment(i) == l_undef)
                 return true;
         }
         return false;

@@ -126,10 +126,7 @@ namespace smt {
         if (!def_int) {
             ptr_buffer<expr> descendants;
             get_foreign_descendants(to_app(n), fid, descendants);
-            ptr_buffer<expr>::iterator it  = descendants.begin();
-            ptr_buffer<expr>::iterator end = descendants.end();
-            for (; it != end; ++it) {
-                expr * arg = *it;
+            for (expr * arg : descendants) {
                 ts_visit_child(arg, false, tcolors, fcolors, todo, visited);
             }
             return visited;
@@ -154,27 +151,27 @@ namespace smt {
     }
 
     void context::top_sort_expr(expr * n, svector<expr_bool_pair> & sorted_exprs) {
-        svector<expr_bool_pair> todo;
-        svector<int>      tcolors;
-        svector<int>      fcolors;
-        todo.push_back(expr_bool_pair(n, true));
-        while (!todo.empty()) {
-            expr_bool_pair & p = todo.back();
+        ts_todo.reset();
+        tcolors.reset();
+        fcolors.reset();
+        ts_todo.push_back(expr_bool_pair(n, true));
+        while (!ts_todo.empty()) {
+            expr_bool_pair & p = ts_todo.back();
             expr * curr        = p.first;
             bool   gate_ctx    = p.second;
             switch (get_color(tcolors, fcolors, curr, gate_ctx)) {
             case White:
                 set_color(tcolors, fcolors, curr, gate_ctx, Grey);
-                ts_visit_children(curr, gate_ctx, tcolors, fcolors, todo);
+                ts_visit_children(curr, gate_ctx, tcolors, fcolors, ts_todo);
                 break;
             case Grey:
-                SASSERT(ts_visit_children(curr, gate_ctx, tcolors, fcolors, todo));
+                SASSERT(ts_visit_children(curr, gate_ctx, tcolors, fcolors, ts_todo));
                 set_color(tcolors, fcolors, curr, gate_ctx, Black);
                 if (n != curr && !m.is_not(curr))
                     sorted_exprs.push_back(expr_bool_pair(curr, gate_ctx));
                 break;
             case Black:
-                todo.pop_back();
+                ts_todo.pop_back();
                 break;
             default:
                 UNREACHABLE();
@@ -185,7 +182,7 @@ namespace smt {
 #define DEEP_EXPR_THRESHOLD 1024
 
     void context::internalize_deep(expr* n) {
-        if (::get_depth(n) > DEEP_EXPR_THRESHOLD) {
+        if (!e_internalized(n) && ::get_depth(n) > DEEP_EXPR_THRESHOLD) {
             // if the expression is deep, then execute topological sort to avoid
             // stack overflow.
             // a caveat is that theory internalizers do rely on recursive descent so
@@ -541,6 +538,8 @@ namespace smt {
         CTRACE("internalize_quantifier_zero", q->get_weight() == 0, tout << mk_pp(q, m) << "\n";);
         SASSERT(gate_ctx); // limitation of the current implementation
         SASSERT(!b_internalized(q));
+        if (!is_forall(q))
+            throw default_exception("internalization of exists is not supported");
         SASSERT(is_forall(q));
         SASSERT(check_patterns(q));
         bool_var v             = mk_bool_var(q);
@@ -558,6 +557,9 @@ namespace smt {
     void context::internalize_lambda(quantifier * q) {
         TRACE("internalize_quantifier", tout << mk_pp(q, m) << "\n";);
         SASSERT(is_lambda(q));
+        if (e_internalized(q)) {
+            return;
+        }
         app_ref lam_name(m.mk_fresh_const("lambda", m.get_sort(q)), m);
         app_ref eq(m), lam_app(m);
         expr_ref_vector vars(m);
@@ -575,6 +577,8 @@ namespace smt {
         internalize_quantifier(fa, true);
         if (!e_internalized(lam_name)) internalize_uninterpreted(lam_name);
         m_app2enode.setx(q->get_id(), get_enode(lam_name), nullptr);
+        m_l_internalized_stack.push_back(q);
+        m_trail_stack.push_back(&m_mk_lambda_trail);
     }
 
     /**
@@ -646,7 +650,7 @@ namespace smt {
                 break;
             case OP_EQ:
                 if (m.is_iff(n))
-                    mk_iff_cnstr(to_app(n));
+                    mk_iff_cnstr(to_app(n), false);
                 break;
             case OP_ITE:
                 mk_ite_cnstr(to_app(n));
@@ -655,9 +659,11 @@ namespace smt {
             case OP_TRUE:
             case OP_FALSE:
                 break;
+            case OP_XOR:
+                mk_iff_cnstr(to_app(n), true);
+                break;
             case OP_DISTINCT:
             case OP_IMPLIES:
-            case OP_XOR:
                 throw default_exception("formula has not been simplified");
             case OP_OEQ:
                 UNREACHABLE();
@@ -992,6 +998,14 @@ namespace smt {
         return e;
     }
 
+    void context::undo_mk_lambda() {
+        SASSERT(!m_l_internalized_stack.empty());
+        m_stats.m_num_del_enode++;
+        quantifier * n         = m_l_internalized_stack.back();
+        m_app2enode[n->get_id()] = nullptr;
+        m_l_internalized_stack.pop_back();
+    }
+
     void context::undo_mk_enode() {
         SASSERT(!m_e_internalized_stack.empty());
         m_stats.m_num_del_enode++;
@@ -1001,7 +1015,7 @@ namespace smt {
         unsigned n_id         = n->get_id();
         SASSERT(is_app(n));
         enode * e             = m_app2enode[n_id];
-        m_app2enode[n_id]     = 0;
+        m_app2enode[n_id]     = nullptr;
         if (e->is_cgr() && !e->is_true_eq() && e->is_cgc_enabled()) {
             SASSERT(m_cg_table.contains_ptr(e));
             m_cg_table.erase(e);
@@ -1614,10 +1628,13 @@ namespace smt {
         mk_gate_clause(buffer.size(), buffer.c_ptr());
     }
 
-    void context::mk_iff_cnstr(app * n) {
+    void context::mk_iff_cnstr(app * n, bool sign) {
+        if (n->get_num_args() != 2) 
+            throw default_exception("formula has not been simplified");
         literal l  = get_literal(n);
         literal l1 = get_literal(n->get_arg(0));
         literal l2 = get_literal(n->get_arg(1));
+        if (sign) l.neg();
         TRACE("mk_iff_cnstr", tout << "l: " << l << ", l1: " << l1 << ", l2: " << l2 << "\n";);
         mk_gate_clause(~l,  l1, ~l2);
         mk_gate_clause(~l, ~l1 , l2);

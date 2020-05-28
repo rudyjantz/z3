@@ -5,8 +5,8 @@ do
     # Add y values
     python addY.py -i "temp.output" -o "temp2.output"
     #Combine all files into one file
-    cat $1".output" "temp2.output" > "temp3.output"
+    cat "temp2.output" >> "temp3.output"
 done
 
 # Select best features for LSTM model
-python select.py -i "temp3.output" -o $1".output"
+#python selectK.py -i "temp3.output" -o $1".output"

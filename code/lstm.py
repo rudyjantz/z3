@@ -40,7 +40,6 @@ class LSTMModel(nn.Module):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Multiprocessing Z3')
-    parser.add_argument('-file', dest='file', type=str, required=True,  help='Communication File')
     parser.add_argument('-model', dest='model', type=str, required=True,  help='LSTM Model file')
 
     args = parser.parse_args()
@@ -55,6 +54,8 @@ if __name__ == '__main__':
     num_layers = 2
     num_classes = 2
     batch_size = 100
+    n_iters = 3000
+    seq_length = 1
 
     model = LSTMModel()
 

@@ -21,10 +21,11 @@ if __name__ == '__main__':
     #pca = PCA(n_components=args.k)
     #X_new = pca.fit_transform(X, y)
 
-    
-    X_new = SelectKBest(chi2, k=args.k).fit_transform(X, y)
+    selectBest = SelectKBest(chi2, k=args.k)
+    X_new = selectBest.fit_transform(X, y)
     y = y.reshape(y.shape[0], 1)
     input_file = np.concatenate((X_new,y), axis=1)
+    #print(selectBest.pvalues_)
 
     np.savetxt(args.output, input_file, delimiter=",")
 
